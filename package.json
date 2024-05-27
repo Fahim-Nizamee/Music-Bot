@@ -8,18 +8,15 @@
   },
   "author": "Fahim",
   "license": "ISC",
-  "dependencies":{
+  "dependencies": {
     "@discordjs/voice": "^0.17.0",
-    "@replit/database": "^3.0.1",
-    "@types/node": "^18.0.6",
     "discord.js": "^14.15.2",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
     "ffmpeg-static": "^5.2.0",
     "libsodium-wrappers": "^0.7.13",
     "node-localstorage": "^3.0.5",
-    "opusscript": "^0.0.8",
     "yt-search": "^2.11.0",
-    "ytdl-core": "^4.11.5"
+    "ytdl-core": "^4.11.5",
+    "opusscript": "^0.0.8"
   }
 }
