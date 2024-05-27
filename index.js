@@ -1,11 +1,9 @@
-require('dotenv').config();
-const { LocalStorage } = require('node-localstorage');
-const { Client, GatewayIntentBits, EmbedBuilder, Partials } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, StreamType } = require('@discordjs/voice');
+const { Client, GatewayIntentBits } = require('discord.js');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
 const ytSearch = require('yt-search');
-const ffmpegPath = require('ffmpeg-static');
-const { load } = require('libsodium-wrappers');
+const ffmpeg = require('ffmpeg-static');
+require("dotenv").config();
 
 const client = new Client({
     intents: [
@@ -13,12 +11,10 @@ const client = new Client({
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-    ],
-    partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+    ]
 });
 
-const TOKEN = process.env.TOKEN;
-const db = new LocalStorage('./scratch');
+const queue = new Map();
 
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
@@ -30,7 +26,7 @@ client.on('messageCreate', async message => {
     const args = message.content.split(' ');
     const command = args.shift().toLowerCase();
 
-    const serverQueue = getServerQueue(message.guild.id);
+    const serverQueue = queue.get(message.guild.id);
 
     if (command === '!play') {
         execute(message, serverQueue, args.join(' '));
@@ -51,6 +47,7 @@ async function execute(message, serverQueue, searchString) {
         return message.channel.send('You need to be in a voice channel to play music!');
     }
 
+    // Search for the video on YouTube
     const videoResult = await ytSearch(searchString);
     const video = videoResult.videos.length > 0 ? videoResult.videos[0] : null;
 
@@ -73,7 +70,7 @@ async function execute(message, serverQueue, searchString) {
             playing: true
         };
 
-        setServerQueue(message.guild.id, queueContruct);
+        queue.set(message.guild.id, queueContruct);
         queueContruct.songs.push(song);
 
         try {
@@ -87,7 +84,7 @@ async function execute(message, serverQueue, searchString) {
             play(message.guild, queueContruct.songs[0]);
         } catch (err) {
             console.error(err);
-            removeServerQueue(message.guild.id);
+            queue.delete(message.guild.id);
             return message.channel.send(err.message);
         }
     } else {
@@ -97,18 +94,18 @@ async function execute(message, serverQueue, searchString) {
 }
 
 function play(guild, song) {
-    const serverQueue = getServerQueue(guild.id);
+    const serverQueue = queue.get(guild.id);
     if (!song) {
         serverQueue.voiceChannel.leave();
-        removeServerQueue(guild.id);
+        queue.delete(guild.id);
         return;
     }
 
     const stream = ytdl(song.url, { filter: 'audioonly', quality: 'highestaudio', highWaterMark: 1 << 25 });
     const resource = createAudioResource(stream, {
-        inputType: StreamType.Arbitrary,
+        inputType: require('@discordjs/voice').StreamType.Arbitrary,
         inlineVolume: true,
-        ffmpegArguments: ['-i', ffmpegPath],
+        ffmpegArguments: ['-i', ffmpeg],
     });
     const player = createAudioPlayer();
 
@@ -164,20 +161,4 @@ function displayQueue(message, serverQueue) {
     message.channel.send(`Current queue:\n${queueString}`);
 }
 
-// Helper functions to interact with LocalStorage
-function getServerQueue(guildId) {
-    const queueString = db.getItem(`queue_${guildId}`);
-    return queueString ? JSON.parse(queueString) : null;
-}
-
-function setServerQueue(guildId, queue) {
-    db.setItem(`queue_${guildId}`, JSON.stringify(queue));
-}
-
-function removeServerQueue(guildId) {
-    db.removeItem(`queue_${guildId}`);
-}
-
-client.login(TOKEN).catch((error) => {
-    console.error("Failed to login:", error);
-});
+client.login(process.env.TOKEN);
