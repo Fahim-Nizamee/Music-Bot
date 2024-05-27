@@ -1,9 +1,10 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, StreamType, generateDependencyReport } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
 const ytSearch = require('yt-search');
-const ffmpeg = require('ffmpeg-static');
-require("dotenv").config();
+const ffmpegPath = require('ffmpeg-static');
+const { load } = require('libsodium-wrappers');
+require('dotenv').config();
 
 const client = new Client({
     intents: [
@@ -47,7 +48,6 @@ async function execute(message, serverQueue, searchString) {
         return message.channel.send('You need to be in a voice channel to play music!');
     }
 
-    // Search for the video on YouTube
     const videoResult = await ytSearch(searchString);
     const video = videoResult.videos.length > 0 ? videoResult.videos[0] : null;
 
@@ -103,9 +103,9 @@ function play(guild, song) {
 
     const stream = ytdl(song.url, { filter: 'audioonly', quality: 'highestaudio', highWaterMark: 1 << 25 });
     const resource = createAudioResource(stream, {
-        inputType: require('@discordjs/voice').StreamType.Arbitrary,
+        inputType: StreamType.Arbitrary,
         inlineVolume: true,
-        ffmpegArguments: ['-i', ffmpeg],
+        ffmpegArguments: ['-i', ffmpegPath],
     });
     const player = createAudioPlayer();
 
